@@ -1,0 +1,859 @@
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import sqlite3
+import datetime
+from PIL import Image
+import time
+
+# Set page configuration first
+st.set_page_config(
+    page_title="PathWise – Global Life Decision Assistant",
+    page_icon="🌏",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# ------------------------- Helper Functions -------------------------
+# Global variables for country data
+tuition_factors = {
+    "USA": 0.6,        # High tuition costs
+    "Canada": 0.8,     # Moderate to high costs
+    "UK": 0.7,         # Moderate to high costs
+    "Australia": 0.75, # Moderate to high costs
+    "Germany": 1.3,    # Very affordable (often free)
+    "Japan": 0.9,      # Moderate costs
+    "Singapore": 0.85, # Moderate costs
+    "New Zealand": 0.8,# Moderate to high costs
+    "Netherlands": 1.1,# More affordable
+    "Sweden": 1.3,     # Very affordable (often free)
+    "Switzerland": 1.0,# Moderate costs
+    "Ireland": 0.85    # Moderate costs
+}
+
+def get_country_recommendations(country, profile):
+    recommendations = {
+        "USA": {
+            "Tech": "Leading tech hubs in Silicon Valley, Seattle, and Austin offer cutting-edge opportunities.",
+            "Education": "Home to world-renowned universities like MIT, Stanford, and Harvard.",
+            "Lifestyle": "Diverse culture, high salaries, but consider healthcare costs.",
+            "Innovation": "Strong startup ecosystem and venture capital funding."
+        },
+        "Canada": {
+            "Tech": "Growing tech scene in Toronto, Vancouver, and Montreal.",
+            "Education": "High-quality education with more affordable tuition than the USA.",
+            "Lifestyle": "High quality of life, universal healthcare, and welcoming immigration policies.",
+            "Innovation": "Strong government support for innovation and research."
+        },
+        "UK": {
+            "Tech": "London's fintech scene and emerging tech hubs across the country.",
+            "Education": "Historic universities with strong global recognition.",
+            "Lifestyle": "Rich cultural heritage and access to European travel.",
+            "Innovation": "Strong focus on AI and financial innovation."
+        },
+        "Australia": {
+            "Tech": "Growing tech sector in Sydney and Melbourne.",
+            "Education": "High-quality education system with strong research focus.",
+            "Lifestyle": "Excellent work-life balance and outdoor lifestyle.",
+            "Innovation": "Strong focus on renewable energy and sustainability."
+        },
+        "Germany": {
+            "Tech": "Strong manufacturing and Industry 4.0 focus.",
+            "Education": "Tuition-free universities and strong vocational training.",
+            "Lifestyle": "High social security and work benefits.",
+            "Innovation": "Leader in automotive and engineering innovation."
+        },
+        "Japan": {
+            "Tech": "Robotics and electronics innovation hub.",
+            "Education": "Strong emphasis on research and development.",
+            "Lifestyle": "Unique culture and excellent public infrastructure.",
+            "Innovation": "Leading in robotics and automation."
+        },
+        "Singapore": {
+            "Tech": "Smart nation initiatives and strong digital infrastructure.",
+            "Education": "Education hub with global university partnerships.",
+            "Lifestyle": "Safe, clean, and efficient city-state.",
+            "Innovation": "Strong government support for digital transformation."
+        }
+    }
+    return recommendations.get(country, {
+        "Tech": "Growing technology sector.",
+        "Education": "Quality education system.",
+        "Lifestyle": "Balanced quality of life.",
+        "Innovation": "Developing innovation ecosystem."
+    })
+
+def get_visualization_colors(n_countries):
+    color_schemes = [
+        '#60A5FA', '#34D399', '#F472B6', '#FBBF24', '#A78BFA',
+        '#F87171', '#45D5C4', '#FB923C', '#818CF8', '#9CA3AF'
+    ]
+    return color_schemes[:n_countries]
+
+def calculate_risk_score(profile, country):
+    try:
+        base_score = 50
+        
+        risk_factors = {
+            "USA": {"language": 0.8, "culture": 0.7, "economy": 0.9, "healthcare": 0.75},
+            "Canada": {"language": 0.8, "culture": 0.8, "economy": 0.85, "healthcare": 0.9},
+            "UK": {"language": 0.9, "culture": 0.75, "economy": 0.8, "healthcare": 0.85},
+            "Australia": {"language": 0.9, "culture": 0.8, "economy": 0.85, "healthcare": 0.9},
+            "Germany": {"language": 0.6, "culture": 0.65, "economy": 0.9, "healthcare": 0.95},
+            "Japan": {"language": 0.4, "culture": 0.5, "economy": 0.8, "healthcare": 0.9},
+            "Singapore": {"language": 0.7, "culture": 0.6, "economy": 0.95, "healthcare": 0.85},
+            "New Zealand": {"language": 0.9, "culture": 0.85, "economy": 0.8, "healthcare": 0.9},
+            "Netherlands": {"language": 0.7, "culture": 0.8, "economy": 0.85, "healthcare": 0.9},
+            "Sweden": {"language": 0.6, "culture": 0.75, "economy": 0.9, "healthcare": 0.95},
+            "Switzerland": {"language": 0.6, "culture": 0.7, "economy": 0.95, "healthcare": 0.95},
+            "Ireland": {"language": 0.9, "culture": 0.8, "economy": 0.85, "healthcare": 0.85}
+        }
+        
+        factors = risk_factors.get(country, {"language": 0.7, "culture": 0.7, "economy": 0.8, "healthcare": 0.8})
+        
+        language_impact = (profile['language_skills'] / 10) * factors["language"] * 20
+        culture_impact = ((10 - abs(5 - profile['risk_tolerance'])) / 10) * factors["culture"] * 15
+        economic_impact = (profile['savings'] / 200000) * factors["economy"] * 15
+        healthcare_impact = factors["healthcare"] * 10
+        
+        total_score = base_score + language_impact + culture_impact + economic_impact + healthcare_impact
+        return min(100, max(0, total_score))
+    except Exception as e:
+        st.error(f"Error calculating risk score: {e}")
+        return 50
+
+def calculate_opportunity_score(profile, country):
+    try:
+        base_score = 50
+        
+        career_factors = {
+            "Technology": {
+                "USA": 1.2, "Canada": 1.0, "UK": 1.1, "Australia": 0.9,
+                "Germany": 1.0, "Japan": 1.1, "Singapore": 1.1, "Switzerland": 1.1
+            },
+            "Finance": {
+                "USA": 1.2, "UK": 1.15, "Singapore": 1.1, "Switzerland": 1.2,
+                "Germany": 0.9, "Japan": 1.0, "Australia": 0.9, "Canada": 0.95
+            },
+            "Healthcare": {
+                "USA": 1.1, "UK": 1.0, "Canada": 1.1, "Australia": 1.0,
+                "Germany": 1.15, "Japan": 1.05, "Sweden": 1.2, "Netherlands": 1.1
+            },
+            "Education": {
+                "USA": 1.0, "UK": 1.1, "Canada": 1.0, "Australia": 1.0,
+                "Germany": 1.05, "Japan": 0.9, "Sweden": 1.1, "Netherlands": 1.05
+            }
+        }
+        
+        career_multiplier = career_factors.get(profile['career_field'], {}).get(country, 1.0)
+        education_multiplier = {"High School": 0.8, "Bachelor's": 1.0, "Master's": 1.2, "PhD": 1.3}[profile['education']]
+        tuition_multiplier = tuition_factors.get(country, 1.0)  # Now using global tuition_factors
+        
+        # Calculate impacts
+        career_impact = career_multiplier * 20
+        education_impact = education_multiplier * 15
+        language_impact = (profile['language_skills'] / 10) * 15
+        tuition_impact = tuition_multiplier * profile['tuition_importance'] * 10
+        
+        total_score = base_score + career_impact + education_impact + language_impact + tuition_impact
+        return min(100, max(0, total_score))
+    except Exception as e:
+        st.error(f"Error calculating opportunity score: {e}")
+        return 40
+
+# ------------------------- Analytics Functions -------------------------
+def get_popular_countries():
+    try:
+        c.execute('''
+            SELECT predicted_country, COUNT(*) as count 
+            FROM predictions 
+            GROUP BY predicted_country 
+            ORDER BY count DESC 
+            LIMIT 5
+        ''')
+        return c.fetchall()
+    except sqlite3.Error as e:
+        st.error(f"Error getting popular countries: {e}")
+        return []
+
+def get_average_scores():
+    try:
+        c.execute('''
+            SELECT predicted_country,
+                   AVG(risk_score) as avg_risk,
+                   AVG(opportunity_score) as avg_opportunity,
+                   AVG(lifestyle_score) as avg_lifestyle
+            FROM predictions
+            GROUP BY predicted_country
+        ''')
+        return c.fetchall()
+    except sqlite3.Error as e:
+        st.error(f"Error getting average scores: {e}")
+        return []
+
+def get_career_trends():
+    try:
+        c.execute('''
+            SELECT career_field, predicted_country, COUNT(*) as count
+            FROM predictions
+            GROUP BY career_field, predicted_country
+            ORDER BY count DESC
+            LIMIT 10
+        ''')
+        return c.fetchall()
+    except sqlite3.Error as e:
+        st.error(f"Error getting career trends: {e}")
+        return []
+
+# Add these functions after the analytics functions and before the SQLite setup
+def create_pie_chart(df, metric, title):
+    fig = go.Figure(data=[go.Pie(
+        labels=df['Country'],
+        values=df[metric],
+        hole=.3,
+        marker=dict(
+            colors=get_visualization_colors(len(df)),
+            line=dict(color='#ffffff', width=2)
+        ),
+        textinfo='label+percent',
+        textfont=dict(size=14, color='white'),
+        hovertemplate="<b>%{label}</b><br>" +
+                    f"{metric}: %{{value:.1f}}<br>" +
+                    "Percentage: %{percent}<br>" +
+                    "<extra></extra>"
+    )])
+    
+    fig.update_layout(
+        title={
+            'text': title,
+            'y':0.95,
+            'x':0.5,
+            'xanchor': 'center',
+            'yanchor': 'top',
+            'font': {'color': 'white', 'size': 20}
+        },
+        paper_bgcolor='rgba(30, 41, 59, 0.8)',
+        plot_bgcolor='rgba(30, 41, 59, 0.8)',
+        height=400,
+        showlegend=False
+    )
+    return fig
+
+def create_radar_chart(df):
+    fig = go.Figure()
+    categories = ['Risk', 'Opportunity', 'Lifestyle']
+    colors = get_visualization_colors(len(df))
+    
+    for i, row in df.iterrows():
+        color = colors[i % len(colors)]
+        fig.add_trace(go.Scatterpolar(
+            r=[row['Risk Score'], row['Opportunity Score'], row['Lifestyle Score']],
+            theta=categories,
+            fill='toself',
+            name=row['Country'],
+            line_color=color,
+            fillcolor=f'rgba{tuple(list(int(color.lstrip("#")[i:i+2], 16) for i in (0, 2, 4)) + [0.2])}',
+        ))
+    
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100],
+                gridcolor='rgba(255, 255, 255, 0.2)',
+                color='white',
+                tickfont={'color': 'white'}
+            ),
+            angularaxis=dict(
+                gridcolor='rgba(255, 255, 255, 0.2)',
+                linecolor='rgba(255, 255, 255, 0.2)',
+                tickfont={'color': 'white'}
+            ),
+            bgcolor='rgba(30, 41, 59, 0.8)'
+        ),
+        showlegend=True,
+        legend=dict(
+            font={'color': 'white', 'size': 12},
+            bgcolor='rgba(30, 41, 59, 0.8)',
+            bordercolor='rgba(255, 255, 255, 0.2)',
+            borderwidth=1
+        ),
+        paper_bgcolor='rgba(30, 41, 59, 0.8)',
+        plot_bgcolor='rgba(30, 41, 59, 0.8)',
+        title={
+            'text': "Country Comparison Radar Chart",
+            'font': {'color': 'white', 'size': 20},
+            'y': 0.95,
+            'x': 0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'
+        },
+        height=500
+    )
+    return fig
+
+def create_bar_chart(df):
+    fig = go.Figure()
+    colors = get_visualization_colors(3)
+    
+    for idx, metric in enumerate(['Risk Score', 'Opportunity Score', 'Lifestyle Score']):
+        fig.add_trace(go.Bar(
+            name=metric,
+            x=df['Country'],
+            y=df[metric],
+            text=df[metric].round(1),
+            textposition='auto',
+            marker_color=colors[idx],
+            hovertemplate="<b>%{x}</b><br>" +
+                        f"{metric}: " + "%{y:.1f}%<br>" +
+                        "<extra></extra>"
+        ))
+    
+    fig.update_layout(
+        title={
+            'text': "Detailed Score Comparison",
+            'font': {'color': 'white', 'size': 20},
+            'y': 0.95,
+            'x': 0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'
+        },
+        barmode='group',
+        height=400,
+        paper_bgcolor='rgba(30, 41, 59, 0.8)',
+        plot_bgcolor='rgba(30, 41, 59, 0.8)',
+        font={'color': 'white'},
+        xaxis={
+            'gridcolor': 'rgba(255, 255, 255, 0.1)',
+            'tickfont': {'color': 'white'},
+            'title': {'text': 'Countries', 'font': {'color': 'white'}}
+        },
+        yaxis={
+            'gridcolor': 'rgba(255, 255, 255, 0.1)',
+            'tickfont': {'color': 'white'},
+            'title': {'text': 'Score (%)', 'font': {'color': 'white'}}
+        },
+        legend={
+            'font': {'color': 'white'},
+            'bgcolor': 'rgba(30, 41, 59, 0.8)',
+            'bordercolor': 'rgba(255, 255, 255, 0.2)',
+            'borderwidth': 1
+        },
+        hoverlabel={'font': {'size': 14}}
+    )
+    return fig
+
+# ------------------------- SQLite Setup -------------------------
+@st.cache_resource
+def init_connection():
+    try:
+        conn = sqlite3.connect("predictions.db", check_same_thread=False)
+        c = conn.cursor()
+        
+        # Create table if it doesn't exist
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS predictions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT,
+                age INTEGER,
+                education TEXT,
+                savings INTEGER,
+                language_skills INTEGER,
+                risk_tolerance INTEGER,
+                career_field TEXT,
+                predicted_country TEXT,
+                risk_score REAL,
+                opportunity_score REAL,
+                lifestyle_score REAL
+            )
+        ''')
+        conn.commit()
+        return conn, c
+    except sqlite3.Error as e:
+        st.error(f"Database Error: {e}")
+        return None, None
+
+# Initialize database connection
+conn, c = init_connection()
+if not conn or not c:
+    st.error("Failed to initialize database connection")
+    st.stop()
+
+# ------------------------- Custom CSS -------------------------
+st.markdown("""
+    <style>
+    /* Main container styling */
+    .main {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: #ffffff;
+        padding: 2rem;
+        border-radius: 10px;
+    }
+    
+    /* Streamlit container styling */
+    .stApp {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: #ffffff;
+    }
+    
+    /* Header styling */
+    h1 {
+        color: #ffffff;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        text-align: center;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    h2 {
+        color: #ffffff;
+        font-size: 1.8rem;
+        font-weight: 600;
+        margin-top: 2rem;
+    }
+    
+    h3 {
+        color: #60a5fa;
+        font-size: 1.4rem;
+        font-weight: 500;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        border: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    }
+    
+    /* Card styling */
+    .country-card {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        margin: 1rem 0;
+        transition: all 0.3s ease;
+        border: 1px solid #475569;
+    }
+    
+    .country-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0,0,0,0.3);
+        border: 1px solid #60a5fa;
+    }
+    
+    /* Metric container styling */
+    .metric-container {
+        background: linear-gradient(135deg, #334155 0%, #475569 100%);
+        padding: 1.2rem;
+        border-radius: 8px;
+        border: 1px solid #475569;
+        margin-top: 1rem;
+        color: #ffffff;
+    }
+    
+    /* Progress bar styling */
+    .stProgress > div > div > div > div {
+        background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+    }
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        padding: 2rem 1rem;
+        border-right: 1px solid #475569;
+    }
+    
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        background-color: #334155;
+        border-radius: 8px;
+        color: #ffffff;
+    }
+    
+    /* Footer styling */
+    .footer {
+        text-align: center;
+        padding: 2rem 0;
+        color: #94a3b8;
+        font-size: 0.9rem;
+    }
+    
+    /* Alert/Info box styling */
+    .stAlert {
+        background: linear-gradient(135deg, #334155 0%, #475569 100%);
+        border-radius: 8px;
+        border: 1px solid #60a5fa;
+        padding: 1rem;
+        color: #ffffff;
+    }
+
+    /* Custom recommendation box */
+    .recommendation-box {
+        background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 0.5rem 0;
+        border: 1px solid #60a5fa;
+    }
+
+    /* Score label styling */
+    .score-label {
+        color: #93c5fd;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Advantage list styling */
+    .advantage-list {
+        background: linear-gradient(135deg, #334155 0%, #475569 100%);
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 0.5rem 0;
+    }
+    
+    /* Text colors */
+    .text-primary { color: #60a5fa; }
+    .text-secondary { color: #94a3b8; }
+    .text-success { color: #34d399; }
+    .text-warning { color: #fbbf24; }
+    .text-white { color: #ffffff; }
+    </style>
+""", unsafe_allow_html=True)
+
+# ------------------------- Title Section -------------------------
+st.title("🌏 PathWise: Your Global Future Navigator")
+
+st.markdown("""
+    <div style='background: linear-gradient(135deg, #e8f0fe 0%, #d4e4fd 100%); 
+                padding: 1.5rem; 
+                border-radius: 12px; 
+                margin-bottom: 2rem;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+        <h4 style='color: #1967d2; margin: 0; font-size: 1.4rem;'>
+            🎯 Make Informed Decisions About Your Global Future
+        </h4>
+        <p style='margin: 0.8rem 0 0 0; color: #3c4043; font-size: 1.1rem;'>
+            Compare opportunities across multiple countries based on your profile, preferences, and goals
+        </p>
+    </div>
+""", unsafe_allow_html=True)
+
+# ------------------------- Sidebar Inputs -------------------------
+with st.sidebar:
+    st.markdown("""
+        <div style='background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+                    padding: 1rem;
+                    border-radius: 8px;
+                    margin-bottom: 2rem;
+                    color: white;
+                    text-align: center;'>
+            <h3 style='margin: 0; color: white;'>Your Profile</h3>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Personal Information
+    with st.expander("👤 Personal Details", expanded=True):
+        age = st.slider("Age", 18, 60, 25,
+            help="Your current age will help us tailor recommendations")
+        education = st.selectbox("Education Level", 
+            ["High School", "Bachelor's", "Master's", "PhD"],
+            help="Your highest completed education level")
+        career_field = st.selectbox("Career Field", 
+            ["Technology", "Finance", "Healthcare", "Education", 
+             "Engineering", "Arts & Media", "Business", "Science & Research"],
+            help="Select your primary career field")
+
+    # Skills and Resources
+    with st.expander("💪 Skills & Resources", expanded=True):
+        savings = st.slider("Savings (USD)", 0, 200000, 20000, step=5000, 
+            format="$%d",
+            help="Your current savings will affect opportunities and risk assessment")
+        language_skills = st.slider("Language Skills", 1, 10, 5, 
+            help="1 = Only Native Language, 10 = Multilingual Proficiency")
+        risk_tolerance = st.slider("Risk Tolerance", 1, 10, 5,
+            help="1 = Very Conservative, 10 = Very Risk-Taking")
+        tuition_importance = st.slider("Tuition Affordability Importance", 1, 10, 5,
+            help="1 = Cost is not a major factor, 10 = Seeking most affordable options")
+
+    # Country Selection
+    with st.expander("🌍 Countries to Compare", expanded=True):
+        st.markdown("""
+            <div style='margin-bottom: 1rem;'>
+                <p style='color: #666; font-size: 0.9rem;'>
+                    Select up to 5 countries to compare. Choose countries that align with your goals and interests.
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        countries = st.multiselect(
+            "Select Countries (Max 5)",
+            ["USA", "Canada", "UK", "Australia", "Germany", "Japan", "Singapore", 
+             "New Zealand", "Netherlands", "Sweden", "Switzerland", "Ireland"],
+            default=["USA", "Canada", "Australia"],
+            max_selections=5
+        )
+
+# ------------------------- Analysis Button -------------------------
+if st.sidebar.button("🔍 Analyze Opportunities", type="primary"):
+    if not countries:
+        st.warning("Please select at least one country to analyze.")
+    else:
+        with st.spinner("Analyzing global opportunities..."):
+            time.sleep(1.5)
+            try:
+                profile = {
+                    'age': age,
+                    'education': education,
+                    'savings': savings,
+                    'language_skills': language_skills,
+                    'risk_tolerance': risk_tolerance,
+                    'career_field': career_field,
+                    'tuition_importance': tuition_importance
+                }
+                
+                # Calculate scores for each country
+                results = []
+                for country in countries:
+                    risk_score = calculate_risk_score(profile, country)
+                    opportunity_score = calculate_opportunity_score(profile, country)
+                    lifestyle_score = (risk_score + opportunity_score) / 2
+                    results.append({
+                        'Country': country,
+                        'Risk Score': risk_score,
+                        'Opportunity Score': opportunity_score,
+                        'Lifestyle Score': lifestyle_score
+                    })
+                
+                # Convert results to DataFrame
+                df_results = pd.DataFrame(results)
+                
+                # Success message
+                st.success("Analysis completed successfully! 🎉")
+                
+                # Display Results
+                st.header("🎯 Global Analysis Results")
+                
+                for idx, country_data in df_results.iterrows():
+                    country = country_data['Country']
+                    recommendations = get_country_recommendations(country, profile)
+                    
+                    st.markdown(f"""
+                        <div class='country-card'>
+                            <h3 style='text-align: center;'>{country} 
+                                {' 🏆' if country_data['Lifestyle Score'] == df_results['Lifestyle Score'].max() else ''}</h3>
+                            
+                            <div class='metric-container'>
+                                <div class='score-label'>Overall Score: {country_data['Lifestyle Score']:.1f}%</div>
+                                <div class='score-label'>Risk Score: {country_data['Risk Score']:.1f}%</div>
+                                <div class='score-label'>Opportunity: {country_data['Opportunity Score']:.1f}%</div>
+                            </div>
+                            
+                            <div class='recommendation-box'>
+                                <h4 style='color: #60a5fa; margin-bottom: 0.8rem;'>Why Choose {country}?</h4>
+                                <p style='color: #ffffff; margin-bottom: 0.5rem;'>🔹 {recommendations["Tech"]}</p>
+                                <p style='color: #ffffff; margin-bottom: 0.5rem;'>🎓 {recommendations["Education"]}</p>
+                                <p style='color: #ffffff; margin-bottom: 0.5rem;'>🌟 {recommendations["Lifestyle"]}</p>
+                                <p style='color: #ffffff; margin-bottom: 0.5rem;'>💡 {recommendations["Innovation"]}</p>
+                                <p style='color: #ffffff;'>💰 Tuition Affordability: {
+                                    "Very Affordable" if tuition_factors.get(country, 1.0) >= 1.2
+                                    else "Affordable" if tuition_factors.get(country, 1.0) >= 1.0
+                                    else "Moderate" if tuition_factors.get(country, 1.0) >= 0.8
+                                    else "High Cost"
+                                }</p>
+                            </div>
+                            
+                            <div class='advantage-list'>
+                                <p class='text-success'>✓ Career Growth Potential: {country_data['Opportunity Score']:.1f}%</p>
+                                <p class='text-warning'>⚖ Risk-Reward Balance: {country_data['Risk Score']:.1f}%</p>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                # Create visualizations
+                st.subheader("📊 Detailed Score Breakdown")
+                
+                # Pie Charts
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    fig_risk = create_pie_chart(df_results, 'Risk Score', "Risk Assessment by Country")
+                    st.plotly_chart(fig_risk, use_container_width=True)
+                
+                with col2:
+                    fig_opp = create_pie_chart(df_results, 'Opportunity Score', "Opportunity Distribution")
+                    st.plotly_chart(fig_opp, use_container_width=True)
+                
+                # Radar Chart
+                fig_radar = create_radar_chart(df_results)
+                st.plotly_chart(fig_radar, use_container_width=True)
+                
+                # Bar Chart
+                fig_bar = create_bar_chart(df_results)
+                st.plotly_chart(fig_bar, use_container_width=True)
+                
+                # Add summary section
+                st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+                                padding: 1.5rem;
+                                border-radius: 12px;
+                                margin: 2rem 0;
+                                border: 1px solid #60a5fa;'>
+                        <h3 style='color: #60a5fa; margin-bottom: 1rem;'>Analysis Summary</h3>
+                        <p style='color: white; margin-bottom: 0.5rem;'>
+                            🏆 Best Overall: <strong>{df_results.loc[df_results['Lifestyle Score'].idxmax(), 'Country']}</strong> (Score: {df_results['Lifestyle Score'].max():.1f}%)
+                        </p>
+                        <p style='color: white; margin-bottom: 0.5rem;'>
+                            🛡️ Lowest Risk: <strong>{df_results.loc[df_results['Risk Score'].idxmax(), 'Country']}</strong> (Score: {df_results['Risk Score'].max():.1f}%)
+                        </p>
+                        <p style='color: white;'>
+                            💫 Best Opportunity: <strong>{df_results.loc[df_results['Opportunity Score'].idxmax(), 'Country']}</strong> (Score: {df_results['Opportunity Score'].max():.1f}%)
+                        </p>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Store results in database
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                for result in results:
+                    try:
+                        c.execute('''
+                            INSERT INTO predictions (
+                                timestamp, age, education, savings, language_skills,
+                                risk_tolerance, career_field, predicted_country,
+                                risk_score, opportunity_score, lifestyle_score
+                            )
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ''', (
+                            timestamp, age, education, savings, language_skills,
+                            risk_tolerance, career_field, result['Country'],
+                            result['Risk Score'], result['Opportunity Score'],
+                            result['Lifestyle Score']
+                        ))
+                        conn.commit()
+                    except sqlite3.Error as e:
+                        st.error(f"Database Error: {e}")
+            except Exception as e:
+                st.error(f"An error occurred during analysis: {e}")
+
+# ------------------------- History Section -------------------------
+with st.expander("📊 View Analysis History"):
+    try:
+        c.execute("""
+            SELECT timestamp, age, education, career_field, 
+                   predicted_country, risk_score, opportunity_score, lifestyle_score 
+            FROM predictions 
+            ORDER BY timestamp DESC 
+            LIMIT 10
+        """)
+        rows = c.fetchall()
+        if rows:
+            df_history = pd.DataFrame(rows, columns=[
+                "Timestamp", "Age", "Education", "Career Field",
+                "Country", "Risk Score", "Opportunity Score", "Lifestyle Score"
+            ])
+            st.dataframe(df_history, use_container_width=True)
+        else:
+            st.info("No previous analysis available.")
+    except sqlite3.Error as e:
+        st.error(f"Database Error: {e}")
+
+# ------------------------- Analytics Section -------------------------
+st.markdown("---")
+st.header("📊 PathWise Analytics")
+st.write("Discover insights from other users' experiences and decisions.")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader("Popular Destinations")
+    popular_countries = get_popular_countries()
+    if popular_countries:
+        fig = px.bar(
+            pd.DataFrame(popular_countries, columns=['Country', 'Count']),
+            x='Country',
+            y='Count',
+            title='Most Popular Country Choices',
+            color='Count',
+            color_continuous_scale='Viridis'
+        )
+        fig.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font_color='white'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+with col2:
+    st.subheader("Career Field Trends")
+    career_trends = get_career_trends()
+    if career_trends:
+        df = pd.DataFrame(career_trends, columns=['Career Field', 'Country', 'Count'])
+        fig = px.treemap(
+            df,
+            path=['Career Field', 'Country'],
+            values='Count',
+            title='Career Fields by Country',
+            color='Count',
+            color_continuous_scale='Viridis'
+        )
+        fig.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font_color='white'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+st.subheader("Country Score Averages")
+avg_scores = get_average_scores()
+if avg_scores:
+    df = pd.DataFrame(avg_scores, columns=['Country', 'Risk', 'Opportunity', 'Lifestyle'])
+    fig = go.Figure()
+    
+    for metric in ['Risk', 'Opportunity', 'Lifestyle']:
+        fig.add_trace(go.Bar(
+            name=metric,
+            x=df['Country'],
+            y=df[metric],
+            text=df[metric].round(1),
+            textposition='auto',
+        ))
+    
+    fig.update_layout(
+        barmode='group',
+        title='Average Scores by Country',
+        xaxis_title='Country',
+        yaxis_title='Score',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font_color='white',
+        showlegend=True
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+st.markdown("""
+    <div style='margin-top: 2rem; text-align: center; color: #94a3b8;'>
+        These analytics are based on anonymous user data and are updated in real-time.
+    </div>
+""", unsafe_allow_html=True)
+
+# ------------------------- Footer -------------------------
+st.markdown("---")
+st.markdown("""
+    <div class='footer'>
+        <p style='font-size: 1.1rem; color: #60a5fa;'>PathWise | Global Life Decision Assistant | Version 2.0</p>
+        <p style='color: #94a3b8;'>Developed with ❤️ by Adnin, Ador & Rifatul</p>
+    </div>
+""", unsafe_allow_html=True)

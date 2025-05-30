@@ -1,0 +1,24 @@
+Country,UN_HDI_Rank,GDP_Per_Capita_USD,Education_Quality_Rank,Innovation_Index,Healthcare_Index,Safety_Index,Cost_of_Living_Index,Student_Visa_Duration_Months,Post_Study_Work_Rights_Months,Minimum_Bank_Balance_USD,Average_Rent_Monthly_USD,Internet_Speed_Mbps,Startup_Ecosystem_Rank,Quality_of_Life_Index,Environmental_Performance_Index
+Japan,19,39312,15,13,87.5,85.2,83.3,24,12,15000,1200,154,15,84.5,75.1
+Germany,4,46208,11,8,91.2,78.5,71.5,24,18,11000,950,115,8,89.2,77.2
+USA,17,63544,3,3,84.5,71.2,89.7,48,12,25000,1800,180,1,82.5,69.3
+Canada,16,44841,7,16,89.8,82.5,75.2,36,36,20000,1400,145,12,88.7,71.0
+UK,13,40285,6,4,87.4,75.8,77.8,24,24,22000,1600,95,4,85.8,81.3
+Australia,8,51693,9,23,89.2,80.5,72.4,48,24,21000,1500,85,7,87.2,74.9
+Singapore,11,59798,20,7,95.4,94.5,91.2,24,12,18000,2200,215,14,91.5,58.1
+New Zealand,14,41792,16,26,88.7,85.4,77.5,36,36,15000,1300,120,35,86.4,71.3
+Netherlands,10,52304,8,5,89.5,81.2,75.4,12,12,12000,1400,125,13,88.9,75.3
+Sweden,7,54608,14,2,90.2,83.5,76.8,24,6,13000,1100,165,17,89.5,78.7
+Switzerland,2,87097,12,1,92.5,85.4,78.5,24,6,23000,2100,185,25,92.3,81.5
+Ireland,3,94556,18,15,86.8,77.5,71.2,24,24,14000,1700,95,15,87.1,72.8
+South Korea,23,34866,25,6,86.5,83.2,85.5,24,18,12000,900,287,6,83.5,66.5
+Denmark,6,60909,4,9,91.5,84.5,77.2,24,24,16000,1300,175,28,90.1,82.5
+Finland,12,48773,1,10,90.8,86.5,78.4,24,12,11500,1100,135,31,89.8,78.9
+Norway,1,67294,13,20,89.7,85.2,75.8,24,12,15500,1400,145,42,91.2,77.7
+Austria,20,48587,21,17,88.5,79.8,76.2,24,12,12500,1000,95,37,86.7,73.5
+Belgium,15,45159,22,22,88.2,76.5,72.4,24,12,11800,950,105,45,85.4,73.3
+Spain,25,27057,24,30,85.5,78.5,71.8,24,12,9500,800,145,34,83.2,74.2
+Italy,29,31676,27,28,84.2,75.4,70.5,24,12,8500,900,85,44,82.8,71.0
+Portugal,38,22437,31,32,83.5,77.8,72.5,24,12,7500,750,125,47,84.5,67.8
+France,26,39030,19,12,87.5,76.8,71.5,24,24,13500,1200,165,11,84.8,80.0
+Advantages,Healthcare|Education|Safety,Education|Innovation|Healthcare,Technology|Research|Diversity,Healthcare|Education|Safety,Education|Innovation|Culture,Education|Healthcare|Lifestyle,Technology|Safety|Infrastructure,Education|Lifestyle|Nature,Innovation|Education|Culture,Innovation|Education|Welfare,Innovation|Banking|Healthcare,Technology|Education|Culture,Technology|Education|Safety,Innovation|Education|Welfare,Education|Innovation|Welfare,Education|Healthcare|Welfare,Education|Culture|Healthcare,Education|Healthcare|Culture,Education|Culture|Lifestyle,Culture|Art|Food,Education|Culture|Weather,Innovation|Culture|Education 
