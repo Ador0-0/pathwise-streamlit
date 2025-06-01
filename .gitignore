@@ -1,2 +1,6 @@
 venv/
 __pycache__/
+.DS_Store
+*.save
+__pycache__/
+*.pyc
