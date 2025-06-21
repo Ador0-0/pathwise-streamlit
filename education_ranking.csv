@@ -1,0 +1,8 @@
+Country,Country_Avg_Rank,Avg_Education_Quality_Score,Avg_Research_Output_Score,Avg_International_Outlook_Score,Avg_Annual_Tuition_USD,Primary_Language_Requirement,Typical_Language_Test_Score
+USA,1,98.23,99.27,94.5,54942.33,English,TOEFL 96/IELTS 7.3
+UK,2,97.5,98.23,92.37,34000,English,IELTS 6.8
+Germany,3,96.5,97.23,90.17,300,German,TestDaF 4/DSH 2
+Japan,4,95.5,96.23,88.17,5350,Japanese,N1
+Canada,5,94.5,95.23,87.17,38666.67,English,TOEFL 93/IELTS 6.5
+Australia,6,93.5,94.23,86.17,41000,English,IELTS 6.5
+Singapore,7,92.65,93.35,85.35,34000,English,IELTS 6.0 
